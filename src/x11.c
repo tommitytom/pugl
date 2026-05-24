@@ -14,6 +14,7 @@
 #include <pugl/pugl.h>
 
 #include <X11/X.h>
+#include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xresource.h>
@@ -186,6 +187,13 @@ puglInitWorldInternals(const PuglWorldType type, const PuglWorldFlags flags)
 
   impl->display     = display;
   impl->scaleFactor = puglX11GetDisplayScaleFactor(display);
+
+  // Detectable auto-repeat: stop X11 synthesizing fake KeyRelease/KeyPress
+  // pairs for held keys. Repeated KeyPress events still arrive (so menu
+  // hold-to-scroll keeps working); apps that distinguish "held" from
+  // "released and re-pressed" get correct semantics, matching Win32/macOS.
+  Bool xkbSupported = False;
+  XkbSetDetectableAutoRepeat(display, True, &xkbSupported);
 
   // Intern the various atoms we'll need
 
