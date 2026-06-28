@@ -852,24 +852,35 @@ flagDiffers(const uint32_t lhs, const uint32_t rhs, const uint32_t mask)
 {
   const uint32_t mods    = getModifiers(event);
   PuglKey        special = PUGL_KEY_NONE;
+  uint32_t       changed = 0;
 
   const uint16_t keyCode = [event keyCode];
   if (flagDiffers(mods, puglview->impl->mods, PUGL_MOD_SHIFT)) {
     special = (keyCode == 0x3C) ? PUGL_KEY_SHIFT_R : PUGL_KEY_SHIFT_L;
+    changed = PUGL_MOD_SHIFT;
   } else if (flagDiffers(mods, puglview->impl->mods, PUGL_MOD_CTRL)) {
     special = (keyCode == 0x3E) ? PUGL_KEY_CTRL_R : PUGL_KEY_CTRL_L;
+    changed = PUGL_MOD_CTRL;
   } else if (flagDiffers(mods, puglview->impl->mods, PUGL_MOD_ALT)) {
     special = (keyCode == 0x3D) ? PUGL_KEY_ALT_R : PUGL_KEY_ALT_L;
+    changed = PUGL_MOD_ALT;
   } else if (flagDiffers(mods, puglview->impl->mods, PUGL_MOD_SUPER)) {
     special = PUGL_KEY_SUPER_L; // Left and right command are identical
+    changed = PUGL_MOD_SUPER;
   } else if (flagDiffers(mods, puglview->impl->mods, PUGL_MOD_CAPS_LOCK)) {
     special = PUGL_KEY_CAPS_LOCK;
+    changed = PUGL_MOD_CAPS_LOCK;
   }
 
   if (special != 0) {
     const NSPoint wloc    = [self eventLocation:event];
     const NSPoint rloc    = [NSEvent mouseLocation];
-    const bool    release = [event type] == NSEventTypeKeyUp;
+    // Modifier changes always arrive as NSEventTypeFlagsChanged (never KeyUp)
+    // for BOTH press and release, so the old `[event type] == NSEventTypeKeyUp`
+    // check was always false — every release was emitted as a PUGL_KEY_PRESS,
+    // so a held modifier (e.g. Shift bound to a button) would stick. Derive
+    // release from whether the changed modifier's bit is now cleared.
+    const bool    release = !(mods & changed);
 
     const PuglKeyEvent ev = {release ? PUGL_KEY_RELEASE : PUGL_KEY_PRESS,
                              0U,
